@@ -4,15 +4,15 @@ from pyspark.ml.recommendation import ALS
 from pyspark.sql import Row
 from pyspark.ml.tuning import ParamGridBuilder, CrossValidator
 
-spark = SparkSession.builder.appName('myproj').getOrCreate() #project name
+spark = SparkSession.builder.appName('myproj').getOrCreate()  # project name
 
-#read ratings
+# read ratings
 ratings = spark.read.csv('ml-25m/ratings.csv', inferSchema=True, header=True)
 ratings.createOrReplaceTempView("ratings")
 # result = spark.sql("select * from ratings")
 # result.show()
 
-#read movies
+# read movies
 movies = spark.read.csv('ml-25m/movies.csv', inferSchema=True, header=True)
 movies.createOrReplaceTempView("movies")
 moives_df = movies.toPandas()
@@ -33,33 +33,35 @@ num_items = ratings.select("movieId").distinct().count()
 denominator = num_users * num_items
 
 # Divide the numerator by the denominator
-sparsity = (1.0 - (numerator * 1.0)/ denominator) * 100
+sparsity = (1.0 - (numerator * 1.0) / denominator) * 100
 print("The ratings dataframe is ", "%.2f" % sparsity + "% empty.")
 
-#als part
+# als part
 (training, test) = ratings.randomSplit([0.8, 0.2])
-als = ALS( userCol="userId", itemCol="movieId", ratingCol="rating",
-          coldStartStrategy="drop", nonnegative = True, implicitPrefs = False)
+als = ALS(userCol="userId", itemCol="movieId", ratingCol="rating",
+          coldStartStrategy="drop", nonnegative=True, implicitPrefs=False)
+als_i = ALS(userCol="userId", itemCol="movieId", ratingCol="rating",
+            coldStartStrategy="drop", nonnegative=True, implicitPrefs=True)
 param_grid = ParamGridBuilder() \
-            .addGrid(als.rank, [10, 50, 75, 100]) \
-            .addGrid(als.maxIter, [5, 50, 75, 100]) \
-            .addGrid(als.regParam, [.01, .05, .1, .15]) \
-            .build()
+    .addGrid(als.rank, [10, 50, 75, 100]) \
+    .addGrid(als.maxIter, [5, 50, 75, 100]) \
+    .addGrid(als.regParam, [.01, .05, .1, .15]) \
+    .build()
 
 # Define evaluator as RMSE
-evaluator = RegressionEvaluator(metricName = "rmse",
-                                labelCol = "rating",
-                                predictionCol = "prediction")
+evaluator = RegressionEvaluator(metricName="rmse",
+                                labelCol="rating",
+                                predictionCol="prediction")
 # Print length of evaluator
-print ("Num models to be tested using param_grid: ", len(param_grid))
+print("Num models to be tested using param_grid: ", len(param_grid))
 
 # Build cross validation using CrossValidator
-cv = CrossValidator(estimator = als,
-                    estimatorParamMaps = param_grid,
-                    evaluator = evaluator,
-                    numFolds = 5)
+cv = CrossValidator(estimator=als,
+                    estimatorParamMaps=param_grid,
+                    evaluator=evaluator,
+                    numFolds=5)
 
-#fit the model
+# fit the model
 model = als.fit(training)
 predictions = model.transform(test)
 predictions.createOrReplaceTempView("predictions")
@@ -70,7 +72,7 @@ rmse = evaluator.evaluate(predictions)
 print("Root-mean-square error = " + str(rmse))
 
 # Generate n recommendations for all users
-ALS_recommendations = model.recommendForAllUsers(numItems = 10) # n - 10
+ALS_recommendations = model.recommendForAllUsers(numItems=10)  # n - 10
 ALS_recommendations.show()
 
 # result = spark.sql("select title from movies where movieid = '69670'")
@@ -89,7 +91,50 @@ clean_recs.show()
 # result.show()
 
 new_movies = (clean_recs.join(ratings, ["userId", "movieId"], "left")
-    .filter(ratings.rating.isNull()))
+              .filter(ratings.rating.isNull()))
 # new_movies.show()
 new_movies_df = new_movies.toPandas()
 new_movies_df.loc[new_movies_df['prediction'] >= 5] = 5
+
+# implicit als
+model_i = als_i.fit(training)
+predictions_i = model_i.transform(test)
+predictions_i.createOrReplaceTempView("predictions_i")
+rmse_i = evaluator.evaluate(predictions_i)
+print("Root-mean-square error = " + str(rmse_i))
+
+# cv_model = cv.fit(training)
+# predictions_cv = cv_model.transform(test)
+# predictions_cv.createOrReplaceTempView("predictions_cv")
+# rmse_cv = evaluator.evaluate(predictions_cv)
+# print("Root-mean-square error = " + str(rmse_cv))
+
+# als_r10 = ALS(userCol="userId", itemCol="movieId", ratingCol="rating",
+#             coldStartStrategy="drop", nonnegative=True, implicitPrefs=False, rank=50)
+# model_r10 = als_r10.fit(training)
+# predictions_r10 = model_r10.transform(test)
+# predictions_r10.createOrReplaceTempView("predictions_r10")
+# rmse_r10 = evaluator.evaluate(predictions_r10)
+# print("Root-mean-square error = " + str(rmse_r10))
+
+rank = [10, 50, 75, 100]
+maxIter = [5, 50, 75, 100]
+regParam = [.01, .05, .1, .15]
+min_rmse = 10
+for i in range(4):
+    for j in range(4):
+        for k in range(4):
+            r = rank[i]
+            # max = maxIter[j]
+            reg = regParam[k]
+            als_r10 = ALS(userCol="userId", itemCol="movieId", ratingCol="rating",
+                          coldStartStrategy="drop", nonnegative=True, implicitPrefs=False, rank=r, regParam=reg)
+            model_r10 = als_r10.fit(training)
+            predictions_r10 = model_r10.transform(test)
+            predictions_r10.createOrReplaceTempView("predictions_r10")
+            rmse_r10 = evaluator.evaluate(predictions_r10)
+            if rmse_r10 < min_rmse:
+                min_rmse = rmse_r10
+            else:
+                pass
+            print("Root-mean-square error = " + str(min_rmse))
