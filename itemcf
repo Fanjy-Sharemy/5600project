@@ -1,0 +1,32 @@
+from pyspark.sql import SparkSession
+import pandas as pd
+
+spark = SparkSession.builder.appName('itemcf').getOrCreate()  # project name
+
+#read ratings
+ratings = spark.read.csv('ml-25m/ratings.csv', inferSchema=True, header=True)
+ratings.createOrReplaceTempView("ratings")
+ratings_s = spark.sql("select * from ratings limit 3000")
+te = ratings_s
+te_df = ratings_s.toPandas()
+# (te, ho) = ratings.randomSplit([0.0001, 0.9999])
+te.createOrReplaceTempView("te")
+user = spark.sql("select distinct userid from te")
+movies = spark.sql("select distinct movieid from te")
+tedf = te.toPandas()
+# user = tedf['userId'].values.tolist()
+# movies = tedf['movieId'].values.tolist()
+# rating = tedf['movieId'].values.tolist()
+# tedf_new = tedf.set_index("userId")
+# tedf_new = tedf_new.set_index("movieId").columns
+# tedf_new.show()
+user = user.toPandas()
+movies = movies.toPandas()
+user = user['userid'].values.tolist()
+movies = movies['movieid'].values.tolist()
+# data = pd.DataFrame(columns=movies, index=user)
+# data.reset_index(level=0, inplace=True)
+# # for i in range(2495)
+test_p = te_df.drop(['timestamp'], axis=1)
+test = pd.pivot_table(test_p, index=['userId'], columns=['movieId'], values=['rating'])
+test.columns = movies
