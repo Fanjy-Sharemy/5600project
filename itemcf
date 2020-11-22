@@ -34,7 +34,7 @@ spark = SparkSession.builder.appName('itemcf').getOrCreate()  # project name
 ratings = spark.read.csv('ml-25m/ratings.csv', inferSchema=True, header=True)
 ratings.createOrReplaceTempView("ratings")
 spark.sql("select count(userId) as num from ratings").show()
-ratings_s = spark.sql("select * from ratings limit 15000")
+ratings_s = spark.sql("select * from ratings limit 200000")
 te = ratings_s
 te_df = ratings_s.toPandas()
 # (te, ho) = ratings.randomSplit([0.0001, 0.9999])
@@ -75,6 +75,9 @@ for j in tqdm(range(len(movies))):
         # print(cos_sim(df[movies[j]], df[movies[i]]))
     n = n+1
 matrix = matrix.replace(np.nan, 0)
+matrix_v = matrix.values
+matrix_v = matrix_v + matrix_v.T-np.diag(matrix_v.diagonal())
+matrix = pd.DataFrame(matrix_v)
 testing_r = testing.reset_index().drop(['userId'], axis=1)
 matrix_r = matrix.reset_index()
 
