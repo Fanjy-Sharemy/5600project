@@ -34,20 +34,13 @@ spark = SparkSession.builder.appName('itemcf').getOrCreate()  # project name
 ratings = spark.read.csv('ml-25m/ratings.csv', inferSchema=True, header=True)
 ratings.createOrReplaceTempView("ratings")
 spark.sql("select count(userId) as num from ratings").show()
-ratings_s = spark.sql("select * from ratings limit 200000")
+ratings_s = spark.sql("select * from ratings limit 2000")
 te = ratings_s
 te_df = ratings_s.toPandas()
 # (te, ho) = ratings.randomSplit([0.0001, 0.9999])
 te.createOrReplaceTempView("te")
 user = spark.sql("select distinct userid from te")
 movies = spark.sql("select distinct movieid from te")
-tedf = te.toPandas()
-# user = tedf['userId'].values.tolist()
-# movies = tedf['movieId'].values.tolist()
-# rating = tedf['movieId'].values.tolist()
-# tedf_new = tedf.set_index("userId")
-# tedf_new = tedf_new.set_index("movieId").columns
-# tedf_new.show()
 user = user.toPandas()
 movies = movies.toPandas()
 # print(len(movies))
@@ -88,6 +81,7 @@ matrix_r = matrix.reset_index()
 rmse_list = []
 for i in range(len(testing_r.index)):
     a = testing_r.iloc[i].tolist()
+    list_zero = []
     for j in range(len(a)):
         if a[j] != 0:
             print(j)
@@ -96,6 +90,24 @@ for i in range(len(testing_r.index)):
             continue
     b = matrix_r.iloc[j, 1::].tolist()
     c = [i * a[0] for i in b]
+    for k in range(len(a)-1,-1,-1):
+        if a[k] == 0:
+            list_zero.append(k)
+            del a[k]
+            del c[k]
+        else:
+            continue
     rmse_r = rmse(c, a)
     rmse_list.append(rmse_r)
 avg_rmse = mean(rmse_list)
+
+# print(a)
+# at = a
+# for k in range(len(at)-1,-1,-1):
+#     if at[k] == 0:
+#         list_zero.append(k)
+#         at.pop(k)
+#         # c.pop(k)
+#     else:
+#         continue
+
