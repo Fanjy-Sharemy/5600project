@@ -1,12 +1,32 @@
 from pyspark.sql import SparkSession
 import pandas as pd
+import numpy as np
+
+
+def cos_sim(vector_a, vector_b):
+    """
+    计算两个向量之间的余弦相似度
+    :param vector_a: 向量 a
+    :param vector_b: 向量 b
+    :return: sim
+    """
+    vector_a = vector_a.values
+    vector_b = vector_b.values
+    vector_a = np.mat(vector_a)
+    vector_b = np.mat(vector_b)
+    num = float(vector_a * vector_b.T)
+    denom = np.linalg.norm(vector_a) * np.linalg.norm(vector_b)
+    cos = num / denom
+    # sim = 0.5 + 0.5 * cos
+    return cos
+
 
 spark = SparkSession.builder.appName('itemcf').getOrCreate()  # project name
 
 #read ratings
 ratings = spark.read.csv('ml-25m/ratings.csv', inferSchema=True, header=True)
 ratings.createOrReplaceTempView("ratings")
-ratings_s = spark.sql("select * from ratings limit 3000")
+ratings_s = spark.sql("select * from ratings limit 5000")
 te = ratings_s
 te_df = ratings_s.toPandas()
 # (te, ho) = ratings.randomSplit([0.0001, 0.9999])
@@ -30,3 +50,22 @@ movies = movies['movieid'].values.tolist()
 test_p = te_df.drop(['timestamp'], axis=1)
 test = pd.pivot_table(test_p, index=['userId'], columns=['movieId'], values=['rating'])
 test.columns = movies
+df = test.replace(np.nan, 0)
+
+matrix = pd.DataFrame(columns= movies, index=movies)
+n = 0
+# for j in range(1856):
+#     for i in range(n, 1856, 1):
+#         matrix[j,i] = cos_sim(df[movies[j]], df[movies[i]])
+#     n = n+1
+#     print(j)
+for j in range(1856):
+    for i in range(n, 1856, 1):
+        matrix.loc[movies[j], movies[i]] = cos_sim(df[movies[j]], df[movies[i]])
+        # print(cos_sim(df[movies[j]], df[movies[i]]))
+    n = n+1
+    print(j)
+
+# matrix.loc[296, 296] = 2
+# for i in range(n, 18, 1):
+#     print(i)
