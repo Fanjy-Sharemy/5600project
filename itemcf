@@ -1,6 +1,7 @@
 from pyspark.sql import SparkSession
 import pandas as pd
 import numpy as np
+from numpy import mean
 from tqdm import tqdm
 
 
@@ -22,13 +23,18 @@ def cos_sim(vector_a, vector_b):
     return cos
 
 
+def rmse(predictions, targets):
+    result = np.sqrt(((np.array(predictions) - np.array(targets)) ** 2).mean())
+    return result
+
+
 spark = SparkSession.builder.appName('itemcf').getOrCreate()  # project name
 
 #read ratings
 ratings = spark.read.csv('ml-25m/ratings.csv', inferSchema=True, header=True)
 ratings.createOrReplaceTempView("ratings")
 spark.sql("select count(userId) as num from ratings").show()
-ratings_s = spark.sql("select * from ratings limit 10000")
+ratings_s = spark.sql("select * from ratings limit 15000")
 te = ratings_s
 te_df = ratings_s.toPandas()
 # (te, ho) = ratings.randomSplit([0.0001, 0.9999])
@@ -44,7 +50,7 @@ tedf = te.toPandas()
 # tedf_new.show()
 user = user.toPandas()
 movies = movies.toPandas()
-print(len(movies))
+# print(len(movies))
 user = user['userid'].values.tolist()
 movies = movies['movieid'].values.tolist()
 # data = pd.DataFrame(columns=movies, index=user)
@@ -54,8 +60,9 @@ test_p = te_df.drop(['timestamp'], axis=1)
 test = pd.pivot_table(test_p, index=['userId'], columns=['movieId'], values=['rating'])
 test.columns = movies
 df = test.replace(np.nan, 0)
-
-matrix = pd.DataFrame(columns= movies, index=movies)
+training = df.sample(frac=0.8)
+testing = df[~df.index.isin(training.index)]
+matrix = pd.DataFrame(columns=movies, index=movies)
 n = 0
 # for j in range(1856):
 #     for i in range(n, 1856, 1):
@@ -64,11 +71,28 @@ n = 0
 #     print(j)
 for j in tqdm(range(len(movies))):
     for i in range(n, len(movies), 1):
-        matrix.loc[movies[j], movies[i]] = cos_sim(df[movies[j]], df[movies[i]])
+        matrix.loc[movies[j], movies[i]] = cos_sim(training[movies[j]], training[movies[i]])
         # print(cos_sim(df[movies[j]], df[movies[i]]))
     n = n+1
-    # print(j)
+matrix = matrix.replace(np.nan, 0)
+testing_r = testing.reset_index().drop(['userId'], axis=1)
+matrix_r = matrix.reset_index()
 
-# matrix.loc[296, 296] = 2
-# for i in range(n, 18, 1):
-#     print(i)
+# a = testing_r.iloc[0].tolist()
+# b = matrix_r.iloc[0,1::].tolist()
+# c = [i * a[0] for i in b]
+# rmse(c,a)
+rmse_list = []
+for i in range(len(testing_r.index)):
+    a = testing_r.iloc[i].tolist()
+    for j in range(len(a)):
+        if a[j] != 0:
+            print(j)
+            break
+        else:
+            continue
+    b = matrix_r.iloc[j, 1::].tolist()
+    c = [i * a[0] for i in b]
+    rmse_r = rmse(c, a)
+    rmse_list.append(rmse_r)
+avg_rmse = mean(rmse_list)
