@@ -5,6 +5,20 @@ from numpy import mean
 from tqdm import tqdm
 
 
+class Recommendation(int):
+    def __init__(self, uid):
+        self.uid = uid
+
+    def pick_recommendation(self):
+        if self.uid in testing_uid:
+            result2 = spark.sql(
+                'select movieId from result where rating is null and userId = ' + str(
+                    self.uid) + ' order by prerating limit 5 ')
+            result2.show()
+        else:
+            print('userId is not in the list')
+            
+            
 def cos_sim(vector_a, vector_b):
     """
     计算两个向量之间的余弦相似度
@@ -108,14 +122,20 @@ spark = SparkSession.builder.getOrCreate()
 prediction_res_T_spark = spark.createDataFrame(prediction_res_T)
 prediction_res_T_spark.createOrReplaceTempView('predictionRTS')
 #
-resultt = spark.sql('select userId, movieId, rating from ratings where rating = 0')
-resultt.show()
+# resultt = spark.sql('select userId, movieId, rating from ratings where rating = 0')
+# resultt.show()
 #
 result = spark.sql('select p.userId, p.movieId, r.rating, round(p.rating, 1) as prerating from ratings as r right join predictionRTS as p'
                    ' on r.userId = p.userId and r.movieId = p.movieId')
-result.show()
+# result.show()
 result.createOrReplaceTempView('result')
 result2 = spark.sql('select movieId from result where rating is null and userId = 4 order by prerating limit 5 ')
 # dtest = result.toPandas()
 result2.show()
-ratings_s.show()
+test_T = test.reset_index().set_index('userId').stack().reset_index()
+
+
+
+
+
+
