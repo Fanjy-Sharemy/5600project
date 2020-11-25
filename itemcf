@@ -17,7 +17,7 @@ class Recommendation(int):
             result2.show()
         else:
             print('userId is not in the list')
-            
+
             
 def cos_sim(vector_a, vector_b):
     """
@@ -129,13 +129,13 @@ result = spark.sql('select p.userId, p.movieId, r.rating, round(p.rating, 1) as 
                    ' on r.userId = p.userId and r.movieId = p.movieId')
 # result.show()
 result.createOrReplaceTempView('result')
-result2 = spark.sql('select movieId from result where rating is null and userId = 4 order by prerating limit 5 ')
-# dtest = result.toPandas()
-result2.show()
-test_T = test.reset_index().set_index('userId').stack().reset_index()
+# result2 = spark.sql('select movieId from result where rating is null and userId = 4 order by prerating limit 5 ')
+# # dtest = result.toPandas()
+# result2.show()
 
-
-
+if __name__ == '__main__':
+    result_t = Recommendation(4)
+    result_t.pick_recommendation()
 
 
 
