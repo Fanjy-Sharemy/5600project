@@ -102,21 +102,20 @@ for i in range(len(testing_r.index)):
     rmse_list.append(rmse_r)
 avg_rmse = mean(rmse_list)
 prediction_res[['userId']] = prediction_res[['userId']].astype(int)
-prediction_res_T = prediction_res.reset_index().set_index('userId').stack().reset_index() #index转化有问题
+prediction_res_T = prediction_res.set_index('userId').stack().reset_index()
 prediction_res_T.columns = ['userId', 'movieId', 'rating']
 spark = SparkSession.builder.getOrCreate()
 prediction_res_T_spark = spark.createDataFrame(prediction_res_T)
 prediction_res_T_spark.createOrReplaceTempView('predictionRTS')
-# result = spark.sql('select count(userId) from ratings where userId = 4')
-# result.show()
-result = spark.sql('select r.userId, r.movieId, r.rating from ratings as r join p.rating from predictionRTS as p'
-                   'on r.userId = p.userId ')
-ratings.show()
-test_T = test.reset_index().set_index('userId').stack().reset_index()
 #
+resultt = spark.sql('select userId, movieId, rating from ratings where rating = 0')
+resultt.show()
 #
-#
-#
-# testing_uid[0]
-
-
+result = spark.sql('select p.userId, p.movieId, r.rating, round(p.rating, 1) as prerating from ratings as r right join predictionRTS as p'
+                   ' on r.userId = p.userId and r.movieId = p.movieId')
+result.show()
+result.createOrReplaceTempView('result')
+result2 = spark.sql('select movieId from result where rating is null and userId = 4 order by prerating limit 5 ')
+# dtest = result.toPandas()
+result2.show()
+ratings_s.show()
