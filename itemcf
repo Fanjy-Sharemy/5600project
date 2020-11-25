@@ -46,9 +46,7 @@ movies = movies.toPandas()
 # print(len(movies))
 user = user['userid'].values.tolist()
 movies = movies['movieid'].values.tolist()
-# data = pd.DataFrame(columns=movies, index=user)
-# data.reset_index(level=0, inplace=True)
-# # for i in range(2495)
+
 test_p = te_df.drop(['timestamp'], axis=1)
 test = pd.pivot_table(test_p, index=['userId'], columns=['movieId'], values=['rating'])
 test.columns = movies
@@ -57,11 +55,7 @@ training = df.sample(frac=0.8)
 testing = df[~df.index.isin(training.index)]
 matrix = pd.DataFrame(columns=movies, index=movies)
 n = 0
-# for j in range(1856):
-#     for i in range(n, 1856, 1):
-#         matrix[j,i] = cos_sim(df[movies[j]], df[movies[i]])
-#     n = n+1
-#     print(j)
+
 for j in tqdm(range(len(movies))):
     for i in range(n, len(movies), 1):
         matrix.loc[movies[j], movies[i]] = cos_sim(training[movies[j]], training[movies[i]])
@@ -72,16 +66,15 @@ matrix_v = matrix.values
 matrix_v = matrix_v + matrix_v.T-np.diag(matrix_v.diagonal())
 matrix = pd.DataFrame(matrix_v)
 testing_r = testing.reset_index().drop(['userId'], axis=1)
+testing = testing.reset_index()
 matrix_r = matrix.reset_index()
 
-# a = testing_r.iloc[0].tolist()
-# b = matrix_r.iloc[0,1::].tolist()
-# c = [i * a[0] for i in b]
-# rmse(c,a)
 rmse_list = []
 for i in range(len(testing_r.index)):
     a = testing_r.iloc[i].tolist()
+    a_zero = testing_r.iloc[i].tolist()
     list_zero = []
+    list_notzero = []
     for j in range(len(a)):
         if a[j] != 0:
             print(j)
@@ -89,25 +82,21 @@ for i in range(len(testing_r.index)):
         else:
             continue
     b = matrix_r.iloc[j, 1::].tolist()
-    c = [i * a[0] for i in b]
+    c = [i * a[j] for i in b]
+    prediction = [i * a[j] for i in b]
     for k in range(len(a)-1,-1,-1):
         if a[k] == 0:
             list_zero.append(k)
             del a[k]
             del c[k]
         else:
+            list_notzero.append(k)
             continue
+    for t in range(len(list_notzero)):
+        del prediction[list_notzero[t]]
     rmse_r = rmse(c, a)
     rmse_list.append(rmse_r)
 avg_rmse = mean(rmse_list)
 
-# print(a)
-# at = a
-# for k in range(len(at)-1,-1,-1):
-#     if at[k] == 0:
-#         list_zero.append(k)
-#         at.pop(k)
-#         # c.pop(k)
-#     else:
-#         continue
+
 
