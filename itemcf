@@ -67,6 +67,8 @@ matrix_v = matrix_v + matrix_v.T-np.diag(matrix_v.diagonal())
 matrix = pd.DataFrame(matrix_v)
 testing_r = testing.reset_index().drop(['userId'], axis=1)
 testing = testing.reset_index()
+testing_uid = testing.userId.tolist()   ###testing###
+prediction_res = testing    ###testing###
 matrix_r = matrix.reset_index()
 
 rmse_list = []
@@ -92,11 +94,29 @@ for i in range(len(testing_r.index)):
         else:
             list_notzero.append(k)
             continue
-    for t in range(len(list_notzero)):
-        del prediction[list_notzero[t]]
+    # for t in range(len(list_notzero)):
+    #     del prediction[list_notzero[t]]
+    prediction.insert(0, int(testing_uid[i]))
+    prediction_res.loc[i] = prediction
     rmse_r = rmse(c, a)
     rmse_list.append(rmse_r)
 avg_rmse = mean(rmse_list)
-
+prediction_res[['userId']] = prediction_res[['userId']].astype(int)
+prediction_res_T = prediction_res.reset_index().set_index('userId').stack().reset_index() #index转化有问题
+prediction_res_T.columns = ['userId', 'movieId', 'rating']
+spark = SparkSession.builder.getOrCreate()
+prediction_res_T_spark = spark.createDataFrame(prediction_res_T)
+prediction_res_T_spark.createOrReplaceTempView('predictionRTS')
+# result = spark.sql('select count(userId) from ratings where userId = 4')
+# result.show()
+result = spark.sql('select r.userId, r.movieId, r.rating from ratings as r join p.rating from predictionRTS as p'
+                   'on r.userId = p.userId ')
+ratings.show()
+test_T = test.reset_index().set_index('userId').stack().reset_index()
+#
+#
+#
+#
+# testing_uid[0]
 
 
